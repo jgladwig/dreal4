@@ -161,7 +161,7 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
         # centos 5 vm for maximum compatibility see
         # https://github.com/pypa/manylinux see also
         # https://github.com/angr/angr-dev/blob/master/admin/bdist.py
-        sys.argv.insert(idx + 1, 'manylinux1_' + platform.machine())
+        sys.argv.insert(idx + 1, 'manylinux_' + platform.libc_ver()[1].replace('.', '_') + '_' + platform.machine())
     elif 'mingw' in name:
         if platform.architecture()[0] == '64bit':
             sys.argv.insert(idx + 1, 'win_amd64')
