@@ -246,7 +246,7 @@ ostream& operator<<(ostream& os, const Box& box) {
         }
         break;
       case Variable::Type::CONTINUOUS:
-        os << interval;
+        os << interval << " = " << interval.diam();
         break;
       case Variable::Type::BOOLEAN:
         if (interval.ub() == 0.0) {

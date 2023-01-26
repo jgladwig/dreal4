@@ -51,11 +51,11 @@ int BranchLargestFirst(const Box& box, const DynamicBitset& active_set,
     *left = std::move(bisected_boxes.first);
     *right = std::move(bisected_boxes.second);
     DREAL_LOG_DEBUG(
-        "Branch {}\n"
+        "Branch {} [{}]\n"
         "on {}\n"
         "Box1=\n{}\n"
         "Box2=\n{}",
-        box, box.variable(branching_dim), *left, *right);
+        box.variable(branching_dim), max_diam_and_idx.first, box, *left, *right);
     return branching_dim;
   }
   return -1;
