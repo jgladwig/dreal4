@@ -29,6 +29,13 @@ namespace dreal {
 std::pair<double, int> FindMaxDiam(const Box& box,
                                    const DynamicBitset& active_set);
 
+/// Finds the dimension with the minimum diameter in a @p box. It only
+/// consider the dimensions enabled in @p active_set.
+///
+/// @returns a pair of (min dimension, variable index).
+std::pair<double, int> FindMinDiam(const Box& box,
+                                   const DynamicBitset& active_set);
+
 /// Finds the largest dimension in `active_set` and partitions `box`
 /// into two sub-boxes by branching on the chosen dimension. It
 /// traverses only the variables enabled by @p active_set, to find a

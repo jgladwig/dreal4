@@ -40,11 +40,29 @@ pair<double, int> FindMaxDiam(const Box& box, const DynamicBitset& active_set) {
   return make_pair(max_diam, max_diam_idx);
 }
 
+pair<double, int> FindMinDiam(const Box& box, const DynamicBitset& active_set) {
+  DREAL_ASSERT(!active_set.none());
+  double min_diam{INFINITY};
+  int min_diam_idx{-1};
+  DynamicBitset::size_type idx = active_set.find_first();
+  while (idx != DynamicBitset::npos) {
+    const Box::Interval& iv_i{box[idx]};
+    const double diam_i{iv_i.diam()};
+    if (diam_i < min_diam && iv_i.is_bisectable() && diam_i >= 0.0001) {
+      min_diam = diam_i;
+      min_diam_idx = idx;
+    }
+    idx = active_set.find_next(idx);
+  }
+  return make_pair(min_diam, min_diam_idx);
+}
+
 int BranchLargestFirst(const Box& box, const DynamicBitset& active_set,
                        Box* const left, Box* const right) {
   DREAL_ASSERT(!active_set.none());
 
-  const pair<double, int> max_diam_and_idx{FindMaxDiam(box, active_set)};
+  // const pair<double, int> max_diam_and_idx{FindMaxDiam(box, active_set)};
+  const pair<double, int> max_diam_and_idx{FindMinDiam(box, active_set)};
   const int branching_dim{max_diam_and_idx.second};
   if (branching_dim >= 0) {
     pair<Box, Box> bisected_boxes{box.bisect(branching_dim)};
@@ -55,7 +73,8 @@ int BranchLargestFirst(const Box& box, const DynamicBitset& active_set,
         "on {}\n"
         "Box1=\n{}\n"
         "Box2=\n{}",
-        box.variable(branching_dim), max_diam_and_idx.first, box, *left, *right);
+        box.variable(branching_dim), max_diam_and_idx.first, box, *left,
+        *right);
     return branching_dim;
   }
   return -1;
