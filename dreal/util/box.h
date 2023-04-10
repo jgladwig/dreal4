@@ -103,6 +103,14 @@ class Box {
   /// Returns the max diameter of the box and the associated index .
   std::pair<double, int> MaxDiam() const;
 
+  /// Returns the min diameter of the box greater than threshold and the
+  /// associated index .
+  std::pair<double, int> MinDiamGT(double threshold) const;
+
+  /// Returns the diameter of the first variable in box greater than threshold
+  /// and the associated index .
+  std::pair<double, int> FirstDiamGT(double threshold) const;
+
   /// Bisects the box at @p i -th dimension.
   /// @throws std::runtime if @p i -th dimension is not bisectable.
   std::pair<Box, Box> bisect(int i) const;
