@@ -453,12 +453,6 @@ bool IcpMcts::CheckSat(const Contractor& contractor,
   stat.num_prune_++;
 
   MctsNode* root = new MctsNode(Box(cs->box()));
-  // root->evaluate(eval_timer_guard,
-  //                // contractor,
-  //                formula_evaluators, cs, config()
-  //                // ,
-  //                //  stat
-  // );
 
   std::random_device rd;
   std::default_random_engine rnd(rd());

@@ -347,10 +347,10 @@ PYBIND11_MODULE(_dreal_py, m) {
       .def(double() / py::self)
       // Pow.
       .def("__pow__",
-           [](const Variable& self, const Expression& other) {
-             return pow(self, other);
-           },
-           py::is_operator())
+          [](const Variable& self, const Expression& other) {
+            return pow(self, other);
+          },
+          py::is_operator())
       // Unary Plus.
       .def(+py::self)
       // Unary Minus.
@@ -422,11 +422,11 @@ PYBIND11_MODULE(_dreal_py, m) {
       .def("IsStrictSubsetOf", &Variables::IsStrictSubsetOf)
       .def("IsStrictSupersetOf", &Variables::IsStrictSupersetOf)
       .def("__iter__",
-           [](const Variables& vars) {
-             return py::make_iterator(vars.begin(), vars.end());
-           },
-           py::keep_alive<
-               0, 1>() /* Essential: keep object alive while iterator exists */)
+          [](const Variables& vars) {
+            return py::make_iterator(vars.begin(), vars.end());
+          },
+          py::keep_alive<
+              0, 1>() /* Essential: keep object alive while iterator exists */)
       .def(py::self == py::self)
       .def(py::self < py::self)
       .def(py::self + py::self)
@@ -589,13 +589,13 @@ PYBIND11_MODULE(_dreal_py, m) {
              return imply(f, f1) && imply(!f, f2);
            });
 
-  m.def("forall",
-        [](const std::vector<Variable>& vec, const Formula& f) {
-          Variables vars;
-          vars.insert(vec.begin(), vec.end());
-          return forall(vars, f);
-        })
-      .def("forall", &forall);
+  m.def("forall", 
+       [](const std::vector<Variable>& vec, const Formula& f) {
+     Variables vars;
+     vars.insert(vec.begin(), vec.end());
+     return forall(vars, f);
+   })
+   .def("forall", &forall);
 
   py::class_<Formula>(m, "Formula")
       .def(py::init<const Variable&>())
@@ -657,7 +657,7 @@ PYBIND11_MODULE(_dreal_py, m) {
            [](const Variable& a, const Variable& b) { return a || b; });
 
   m.def("logical_not", [](const Formula& a) { return !a; })
-      .def("logical_not", [](const Variable& a) { return !a; });
+   .def("logical_not", [](const Variable& a) { return !a; });
 
   m.def("logical_imply",
         [](const Formula& a, const Formula& b) { return imply(a, b); })
@@ -730,6 +730,9 @@ PYBIND11_MODULE(_dreal_py, m) {
                     [](Config& self, const Config::Brancher& brancher) {
                       self.mutable_brancher() = brancher;
                     })
+      .def_property(
+          "mcts", &Config::mcts,
+          [](Config& self, const bool mcts) { self.mutable_mcts() = mcts; })
       .def("__str__",
            [](const Config& self) { return fmt::format("{}", self); });
 
@@ -748,6 +751,7 @@ PYBIND11_MODULE(_dreal_py, m) {
 
   py::class_<Context>(m, "Context")
       .def(py::init<>())
+      .def(py::init<Config>())
       .def("Assert", &Context::Assert)
       .def("CheckSat",
            [](Context& self) {
