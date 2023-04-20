@@ -52,7 +52,7 @@ void MctsNode::evaluate(TimerGuard& eval_timer_guard,
     delta_sat_ = false;
     sat_ = false;
     terminal_ = true;
-    DREAL_LOG_INFO("Unsat");
+    DREAL_LOG_DEBUG("Unsat");
   } else {
     eval_timer_guard.resume();
     evaluation_result_ =
@@ -68,13 +68,13 @@ void MctsNode::evaluate(TimerGuard& eval_timer_guard,
       delta_sat_ = false;
       sat_ = false;
       terminal_ = true;
-      DREAL_LOG_INFO("Unsat");
+      DREAL_LOG_DEBUG("Unsat");
     } else if (evaluation_result_->none()) {
       // 3.2.2. delta-SAT : We find a box which is small enough.
       DREAL_LOG_DEBUG("IcpMcts::CheckSat() Found a delta-box:\n{}", box_);
       delta_sat_ = true;
       terminal_ = true;
-      DREAL_LOG_INFO("Delta-Sat");
+      DREAL_LOG_DEBUG("Delta-Sat");
 
       // Set the contractor_status box to this.box_
       delta_sat_box_ = cs->mutable_box();
@@ -170,10 +170,6 @@ double MctsNode::simulate_box(
     ContractorStatus* const cs, const Contractor& contractor,
     TimerGuard& eval_timer_guard, TimerGuard& prune_timer_guard,
     const Config& config, IcpStat& stat, std::default_random_engine& rnd) {
-  // For each box in candidates
-  //  Pick var to sample and sample num_samples times
-  //  Add not unsat next_candidates to candidates
-
   int num_candidates = 10;
   int num_samples = 3;
   vector<Box> candidates;
@@ -197,7 +193,6 @@ double MctsNode::simulate_box(
          candidate++) {
       for (int i = 0; i < num_samples; i++) {
         Box next_candidate{*candidate};
-        // point_box = *next_candidate;
         Box::IntervalVector& values = next_candidate.mutable_interval_vector();
 
         double max_diam;
@@ -234,10 +229,8 @@ double MctsNode::simulate_box(
               assert(midpoint - lower <= std::numeric_limits<double>::max());
               assert(midpoint - lower > 0);
               std::uniform_real_distribution<double> dist(lower, midpoint);
-              // for (int i = 0; i < 100; i++) {
               r = dist(rnd);
-              //   DREAL_LOG_DEBUG("IcpMcts::simulate_box() r = {}", r);
-              // }
+
               if (r == -std::numeric_limits<double>::infinity()) {
                 r = -std::numeric_limits<double>::max();
               }
@@ -245,11 +238,9 @@ double MctsNode::simulate_box(
               assert(upper - midpoint <= std::numeric_limits<double>::max());
               assert(upper - midpoint > 0);
               std::uniform_real_distribution<double> dist(midpoint, upper);
-              // r = dist(rnd);
-              // for (int i = 0; i < 100; i++) {
+
               r = dist(rnd);
-              //   DREAL_LOG_DEBUG("IcpMcts::simulate_box() r = {}", r);
-              // }
+
               if (r == std::numeric_limits<double>::infinity()) {
                 r = std::numeric_limits<double>::max();
               }
@@ -280,21 +271,6 @@ double MctsNode::simulate_box(
           stat.num_prune_++;
           stat.num_prune_--;
 
-          // DREAL_LOG_DEBUG(
-          //     "IcpMcts::simulate_box() prune with sample results in "
-          //     "box:\n{}",
-          //     *next_candidate);
-
-          // DREAL_LOG_DEBUG(
-          //     "IcpMcts::simulate_box() prune with sample results in "
-          //     "point_box:\n{}",
-          //     point_box);
-
-          // DREAL_LOG_DEBUG(
-          //     "IcpMcts::simulate_box() prune with sample results in "
-          //     "cs->box:\n{}",
-          //     cs->mutable_box());
-
           next_candidate = cs->box();
 
           if (!next_candidate.empty()) {
@@ -303,14 +279,6 @@ double MctsNode::simulate_box(
                 formula_evaluators, next_candidate, config.precision(), cs);
             eval_timer_guard.pause();
 
-            // DREAL_LOG_DEBUG(
-            //     "IcpMcts::simulate_box() evalute box results:\n {} ",
-            //     evaluation_result);
-
-            // DREAL_LOG_DEBUG(
-            //     "IcpMcts::simulate_box() evalution_result: "
-            //     "box:\n{}",
-            //     *next_candidate);
             if (!evaluation_result) {
               // unsat
             } else if (evaluation_result->none()) {
@@ -446,24 +414,10 @@ bool IcpMcts::CheckSat(const Contractor& contractor,
   TimerGuard branch_timer_guard(&stat.timer_branch_, stat.enabled(),
                                 false /* start_timer */);
 
-  // prune_timer_guard.resume();
-  // contractor.Prune(cs);
-  // prune_timer_guard.pause();
-  // stat.num_prune_++;
-
   prune_timer_guard.resume();
   contractor.Prune(cs);
   prune_timer_guard.pause();
   stat.num_prune_++;
-
-  // if (cs->box().empty()) return false;
-
-  // eval_timer_guard.resume();
-  // optional<DynamicBitset> evaluation_result =
-  //     EvaluateBox(formula_evaluators, cs->box(), config().precision(), cs);
-  // eval_timer_guard.pause();
-
-  // if (!evaluation_result) return false;
 
   DREAL_LOG_DEBUG("After pruning root box: {}", cs->box());
   MctsNode* root = new MctsNode(Box(cs->box()));
@@ -476,10 +430,10 @@ bool IcpMcts::CheckSat(const Contractor& contractor,
                  prune_timer_guard, config(), stat, rnd);
 
   while (!(root->unsat() || root->delta_sat() || root->sat())) {
-    DREAL_LOG_INFO("[");
+    DREAL_LOG_DEBUG("[");
     MctsBP(root, formula_evaluators, cs, contractor, branch_timer_guard,
            eval_timer_guard, prune_timer_guard, stat, rnd);
-    DREAL_LOG_INFO("]");
+    DREAL_LOG_DEBUG("]");
   }
 
   bool rvalue = !root->unsat();
@@ -487,9 +441,9 @@ bool IcpMcts::CheckSat(const Contractor& contractor,
     cs->mutable_box() = root->delta_sat_box();
   }
 
-  // DREAL_LOG_INFO("IcpMCTS::CheckSAT, result = {}", root->delta_sat_box());
+  // DREAL_LOG_DEBUG("IcpMCTS::CheckSAT, result = {}", root->delta_sat_box());
   delete root;
-  // DREAL_LOG_INFO("IcpMCTS::CheckSAT, cs->box() = {}", cs->mutable_box());
+  // DREAL_LOG_DEBUG("IcpMCTS::CheckSAT, cs->box() = {}", cs->mutable_box());
   return rvalue;
 }
 
@@ -509,12 +463,12 @@ double IcpMcts::MctsBP(MctsNode* node,
                        eval_timer_guard, prune_timer_guard, config(), stat);
 
       if (expanded) {
-        DREAL_LOG_INFO("X");
+        DREAL_LOG_DEBUG("X");
         MctsNode* child = node->select();
         wins = child->simulate(formula_evaluators, cs, contractor,
                                eval_timer_guard, prune_timer_guard, config(),
                                stat, rnd);
-        DREAL_LOG_INFO("{}", wins);
+        DREAL_LOG_DEBUG("{}", wins);
       } else {
         wins = 1;
       }
@@ -522,7 +476,7 @@ double IcpMcts::MctsBP(MctsNode* node,
     } else {
       // Node is interior, and need to select child to recurse
       MctsNode* child = node->select();
-      DREAL_LOG_INFO("Select child: {}\n{}", child->index(), child->box());
+      DREAL_LOG_DEBUG("Select child: {}\n{}", child->index(), child->box());
       wins =
           MctsBP(child, formula_evaluators, cs, contractor, branch_timer_guard,
                  eval_timer_guard, prune_timer_guard, stat, rnd);
@@ -530,7 +484,7 @@ double IcpMcts::MctsBP(MctsNode* node,
   } else {
     // Node is decided
     wins = 1;
-    DREAL_LOG_INFO("{}", wins);
+    DREAL_LOG_DEBUG("{}", wins);
   }
   node->increment_visited();
   node->backpropagate(wins);
