@@ -18,14 +18,13 @@
 #include <utility>
 #include <vector>
 
+#include "./ibex.h"
 #include "fmt/format.h"
 #include "fmt/ostream.h"
 #include "pybind11/functional.h"
 #include "pybind11/operators.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
-
-#include "./ibex.h"
 
 #include "dreal/api/api.h"
 #include "dreal/smt2/logic.h"
@@ -346,7 +345,8 @@ PYBIND11_MODULE(_dreal_py, m) {
       .def(py::self / double())
       .def(double() / py::self)
       // Pow.
-      .def("__pow__",
+      .def(
+          "__pow__",
           [](const Variable& self, const Expression& other) {
             return pow(self, other);
           },
@@ -421,7 +421,8 @@ PYBIND11_MODULE(_dreal_py, m) {
       .def("IsSupersetOf", &Variables::IsSupersetOf)
       .def("IsStrictSubsetOf", &Variables::IsStrictSubsetOf)
       .def("IsStrictSupersetOf", &Variables::IsStrictSupersetOf)
-      .def("__iter__",
+      .def(
+          "__iter__",
           [](const Variables& vars) {
             return py::make_iterator(vars.begin(), vars.end());
           },
@@ -589,13 +590,11 @@ PYBIND11_MODULE(_dreal_py, m) {
              return imply(f, f1) && imply(!f, f2);
            });
 
-  m.def("forall", 
-       [](const std::vector<Variable>& vec, const Formula& f) {
+  m.def("forall", [](const std::vector<Variable>& vec, const Formula& f) {
      Variables vars;
      vars.insert(vec.begin(), vec.end());
      return forall(vars, f);
-   })
-   .def("forall", &forall);
+   }).def("forall", &forall);
 
   py::class_<Formula>(m, "Formula")
       .def(py::init<const Variable&>())
@@ -656,8 +655,9 @@ PYBIND11_MODULE(_dreal_py, m) {
       .def("__logical_or",
            [](const Variable& a, const Variable& b) { return a || b; });
 
-  m.def("logical_not", [](const Formula& a) { return !a; })
-   .def("logical_not", [](const Variable& a) { return !a; });
+  m.def("logical_not", [](const Formula& a) {
+     return !a;
+   }).def("logical_not", [](const Variable& a) { return !a; });
 
   m.def("logical_imply",
         [](const Formula& a, const Formula& b) { return imply(a, b); })

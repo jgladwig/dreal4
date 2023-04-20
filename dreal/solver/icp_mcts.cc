@@ -115,37 +115,45 @@ bool MctsNode::expand(const vector<FormulaEvaluator>& formula_evaluators,
                       TimerGuard& eval_timer_guard,
                       TimerGuard& prune_timer_guard, const Config& config,
                       IcpStat& stat) {
-  this->evaluate(eval_timer_guard,
-                 // contractor,
-                 formula_evaluators, cs, config
-                 // ,
-                 //  stat
-  );
-
   if (this->terminal()) return false;
 
   // 3.2.3. This box is bigger than delta. Need branching.
   branch_timer_guard.resume();
   Box box_left;
+
   Box box_right;
   const int branching_dim =
       config.brancher()(box_, *evaluation_result_, &box_left, &box_right);
+
   if (branching_dim >= 0) {
     Box& contractor_box{cs->mutable_box()};
     prune_timer_guard.resume();
+    DREAL_LOG_DEBUG("MCTSNode::expand(), pre-prune left: {}", box_left);
     contractor_box = box_left;
     contractor.Prune(cs);
-    contractor_box = box_right;
-    contractor.Prune(cs);
-    prune_timer_guard.pause();
+    box_left = contractor_box;
     stat.num_prune_++;
-
+    prune_timer_guard.pause();
+    DREAL_LOG_DEBUG("MCTSNode::expand(), post-prune left: {}", box_left);
     MctsNode* child_left = new MctsNode(box_left, this);
-    MctsNode* child_right = new MctsNode(box_right, this);
+    child_left->evaluate(eval_timer_guard, formula_evaluators, cs, config);
     children_.insert(children_.begin(), child_left);
+
+    prune_timer_guard.resume();
+    DREAL_LOG_DEBUG("MCTSNode::expand(), pre-prune right: {}", box_right);
+    contractor_box = box_right;
+
+    contractor.Prune(cs);
+    box_right = contractor_box;
+    stat.num_prune_++;
+    prune_timer_guard.pause();
+    DREAL_LOG_DEBUG("MCTSNode::expand(), post-prune right: {}", box_right);
+    MctsNode* child_right = new MctsNode(box_right, this);
+    child_right->evaluate(eval_timer_guard, formula_evaluators, cs, config);
     children_.insert(children_.begin(), child_right);
     branch_timer_guard.pause();
     stat.num_branch_++;
+
     return true;
   } else {
     DREAL_LOG_DEBUG(
@@ -273,20 +281,20 @@ double MctsNode::simulate_box(
           stat.num_prune_++;
           stat.num_prune_--;
 
-          DREAL_LOG_DEBUG(
-              "IcpMcts::simulate_box() prune with sample results in "
-              "box:\n{}",
-              *next_candidate);
+          // DREAL_LOG_DEBUG(
+          //     "IcpMcts::simulate_box() prune with sample results in "
+          //     "box:\n{}",
+          //     *next_candidate);
 
-          DREAL_LOG_DEBUG(
-              "IcpMcts::simulate_box() prune with sample results in "
-              "point_box:\n{}",
-              point_box);
+          // DREAL_LOG_DEBUG(
+          //     "IcpMcts::simulate_box() prune with sample results in "
+          //     "point_box:\n{}",
+          //     point_box);
 
-          DREAL_LOG_DEBUG(
-              "IcpMcts::simulate_box() prune with sample results in "
-              "cs->box:\n{}",
-              cs->mutable_box());
+          // DREAL_LOG_DEBUG(
+          //     "IcpMcts::simulate_box() prune with sample results in "
+          //     "cs->box:\n{}",
+          //     cs->mutable_box());
 
           delete next_candidate;
           next_candidate = new Box(cs->box());
@@ -301,10 +309,10 @@ double MctsNode::simulate_box(
             //     "IcpMcts::simulate_box() evalute box results:\n {} ",
             //     evaluation_result);
 
-            DREAL_LOG_DEBUG(
-                "IcpMcts::simulate_box() evalution_result: "
-                "box:\n{}",
-                *next_candidate);
+            // DREAL_LOG_DEBUG(
+            //     "IcpMcts::simulate_box() evalution_result: "
+            //     "box:\n{}",
+            //     *next_candidate);
             if (!evaluation_result) {
               // unsat
               delete next_candidate;
@@ -377,6 +385,7 @@ double MctsNode::simulate(
   double total_depth = 0;
   visited_++;
   int iterations = 1;
+  // int iterations = 0;
   int i = 1;
   for (; i <= iterations; i++) {
     // For each variable that is not degenerate, sample a value and assign it.
@@ -408,6 +417,11 @@ void MctsNode::backpropagate(double wins) {
     delta_sat_ =
         std::any_of(children_.begin(), children_.end(),
                     [](MctsNode* child) { return child->delta_sat(); });
+    for (auto child : children_) {
+      if (child->delta_sat()) {
+        delta_sat_box_ = child->delta_sat_box_;
+      }
+    }
   }
   if (unsat_ || sat_ || delta_sat_) {
     terminal_ = true;
@@ -421,7 +435,7 @@ MctsNode* MctsNode::select() {
       [](MctsNode* a, MctsNode* b) { return a->value() < b->value(); });
   return child;
 }
-
+const Box& MctsNode::delta_sat_box() const { return delta_sat_box_; }
 bool MctsNode::unsat() { return unsat_; }
 bool MctsNode::delta_sat() { return delta_sat_; }
 bool MctsNode::sat() { return sat_; }
@@ -452,7 +466,18 @@ bool IcpMcts::CheckSat(const Contractor& contractor,
   prune_timer_guard.pause();
   stat.num_prune_++;
 
+  // if (cs->box().empty()) return false;
+
+  // eval_timer_guard.resume();
+  // optional<DynamicBitset> evaluation_result =
+  //     EvaluateBox(formula_evaluators, cs->box(), config().precision(), cs);
+  // eval_timer_guard.pause();
+
+  // if (!evaluation_result) return false;
+
+  DREAL_LOG_DEBUG("After pruning root box: {}", cs->box());
   MctsNode* root = new MctsNode(Box(cs->box()));
+  root->evaluate(eval_timer_guard, formula_evaluators, cs, config());
 
   std::random_device rd;
   std::default_random_engine rnd(rd());
@@ -468,7 +493,12 @@ bool IcpMcts::CheckSat(const Contractor& contractor,
   }
 
   bool rvalue = !root->unsat();
+  if (rvalue) {
+    cs->mutable_box() = root->delta_sat_box();
+  }
+
   delete root;
+  DREAL_LOG_INFO("IcpMCTS::CheckSAT, result = {}", rvalue);
   return rvalue;
 }
 
@@ -501,7 +531,7 @@ double IcpMcts::MctsBP(MctsNode* node,
     } else {
       // Node is interior, and need to select child to recurse
       MctsNode* child = node->select();
-      DREAL_LOG_INFO(".");
+      DREAL_LOG_INFO("Select child: {}\n{}", child->index(), child->box());
       wins =
           MctsBP(child, formula_evaluators, cs, contractor, branch_timer_guard,
                  eval_timer_guard, prune_timer_guard, stat, rnd);

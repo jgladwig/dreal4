@@ -38,6 +38,8 @@ class MctsNode {
   /// Returns a const reference of the embedded box.
   const Box& box() const;
 
+  const Box& delta_sat_box() const;
+
   void evaluate(TimerGuard& eval_timer_guard,
                 // const Contractor& contractor,
                 const std::vector<FormulaEvaluator>& formula_evaluators,
