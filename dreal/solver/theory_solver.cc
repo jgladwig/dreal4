@@ -25,6 +25,7 @@
 #include "dreal/solver/context.h"
 #include "dreal/solver/filter_assertion.h"
 #include "dreal/solver/formula_evaluator.h"
+#include "dreal/solver/icp_mcts.h"
 #include "dreal/solver/icp_parallel.h"
 #include "dreal/solver/icp_seq.h"
 #include "dreal/util/assert.h"
@@ -45,7 +46,11 @@ TheorySolver::TheorySolver(const Config& config)
   if (config_.number_of_jobs() > 1) {
     icp_ = make_unique<IcpParallel>(config_);
   } else {
-    icp_ = make_unique<IcpSeq>(config_);
+    if (config_.mcts()) {
+      icp_ = make_unique<IcpMcts>(config_);
+    } else {
+      icp_ = make_unique<IcpSeq>(config_);
+    }
   }
 }
 
