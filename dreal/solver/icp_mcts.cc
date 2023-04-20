@@ -77,8 +77,7 @@ void MctsNode::evaluate(TimerGuard& eval_timer_guard,
       DREAL_LOG_INFO("Delta-Sat");
 
       // Set the contractor_status box to this.box_
-      Box& b = cs->mutable_box();
-      b = box_;
+      delta_sat_box_ = cs->mutable_box();
     }
     eval_timer_guard.pause();
   }
@@ -177,9 +176,9 @@ double MctsNode::simulate_box(
 
   int num_candidates = 10;
   int num_samples = 3;
-  vector<Box*> candidates;
+  vector<Box> candidates;
   Box& point_box{cs->mutable_box()};
-  candidates.push_back(new Box(sim_box));
+  candidates.push_back(sim_box);
 
   int num_to_assign = 0;
   for (Variable v : sim_box.variables()) {
@@ -193,19 +192,19 @@ double MctsNode::simulate_box(
   int depth = 0;
   while (!candidates.empty() && num_to_assign > 0) {
     depth++;
-    vector<Box*> next_candidates;
+    vector<Box> next_candidates;
     for (auto candidate = candidates.begin(); candidate != candidates.end();
          candidate++) {
       for (int i = 0; i < num_samples; i++) {
-        Box* next_candidate = new Box(**candidate);
+        Box next_candidate{*candidate};
         // point_box = *next_candidate;
-        Box::IntervalVector& values = next_candidate->mutable_interval_vector();
+        Box::IntervalVector& values = next_candidate.mutable_interval_vector();
 
         double max_diam;
         int v_id;
-        tie(max_diam, v_id) = next_candidate->FirstDiamGT(config.precision());
+        tie(max_diam, v_id) = next_candidate.FirstDiamGT(config.precision());
         if (v_id > -1 && max_diam > config.precision()) {
-          Variable v = next_candidate->variables()[v_id];
+          Variable v = next_candidate.variables()[v_id];
           Box::Interval& interval = values[v_id];
 
           if (!interval.is_degenerated() &&
@@ -258,7 +257,7 @@ double MctsNode::simulate_box(
 
             DREAL_LOG_DEBUG(
                 "IcpMcts::simulate_box() sampling {}:{} = {} for:\n{}", v,
-                interval, r, *next_candidate);
+                interval, r, next_candidate);
             double noise =
                 std::min(config.precision() * 0.49, interval.diam() * 0.49);
             Box::Interval new_interval{std::max(interval.lb(), r - noise),
@@ -267,14 +266,14 @@ double MctsNode::simulate_box(
             values[v_id] = interval;
             DREAL_LOG_DEBUG(
                 "IcpMcts::simulate_box() set interval {}:{} = {} for:\n{}", v,
-                interval, r, *next_candidate);
+                interval, r, next_candidate);
 
             // Prune using the assignment
             // prune_timer_guard.resume();
             int& branching_point = cs->mutable_branching_point();
             branching_point = v.get_id() - 1;
           }
-          point_box = *next_candidate;
+          point_box = next_candidate;
 
           contractor.Prune(cs);
           prune_timer_guard.pause();
@@ -296,13 +295,12 @@ double MctsNode::simulate_box(
           //     "cs->box:\n{}",
           //     cs->mutable_box());
 
-          delete next_candidate;
-          next_candidate = new Box(cs->box());
+          next_candidate = cs->box();
 
-          if (!next_candidate->empty()) {
+          if (!next_candidate.empty()) {
             eval_timer_guard.resume();
             optional<DynamicBitset> evaluation_result = EvaluateBox(
-                formula_evaluators, *next_candidate, config.precision(), cs);
+                formula_evaluators, next_candidate, config.precision(), cs);
             eval_timer_guard.pause();
 
             // DREAL_LOG_DEBUG(
@@ -315,10 +313,9 @@ double MctsNode::simulate_box(
             //     *next_candidate);
             if (!evaluation_result) {
               // unsat
-              delete next_candidate;
             } else if (evaluation_result->none()) {
               // delta sat
-              delta_sat_box_ = Box(*next_candidate);
+              delta_sat_box_ = next_candidate;
               delta_sat_ = true;
               terminal_ = true;
               break;
@@ -329,11 +326,10 @@ double MctsNode::simulate_box(
             }
           } else {
             // unsat
-            delete next_candidate;
           }
 
         } else {
-          delta_sat_box_ = Box(*next_candidate);
+          delta_sat_box_ = next_candidate;
           delta_sat_ = true;
           terminal_ = true;
           break;
@@ -343,10 +339,7 @@ double MctsNode::simulate_box(
         break;
       }
     }
-    // free candidates
-    for (auto i = candidates.begin(); i != candidates.end(); ++i) {
-      delete *i;
-    }
+
     candidates.clear();
 
     // keep num_candidates next_candidates
@@ -355,14 +348,11 @@ double MctsNode::simulate_box(
       std::uniform_int_distribution<int> dist(0, next_candidates.size() - 1);
       for (int j = 0; j < num_candidates; j++) {
         int candidate_index = dist(rnd);
-        Box* candidate = new Box(*next_candidates[candidate_index]);
+        Box candidate = next_candidates[candidate_index];
         candidates.insert(candidates.begin(), candidate);
       }
     } else {
       break;
-    }
-    for (auto i = next_candidates.begin(); i != next_candidates.end(); ++i) {
-      delete *i;
     }
     next_candidates.clear();
     if (delta_sat_) {
@@ -384,8 +374,8 @@ double MctsNode::simulate(
     const Config& config, IcpStat& stat, std::default_random_engine& rnd) {
   double total_depth = 0;
   visited_++;
-  int iterations = 1;
-  // int iterations = 0;
+  // int iterations = 1;
+  int iterations = 0;
   int i = 1;
   for (; i <= iterations; i++) {
     // For each variable that is not degenerate, sample a value and assign it.
@@ -497,8 +487,9 @@ bool IcpMcts::CheckSat(const Contractor& contractor,
     cs->mutable_box() = root->delta_sat_box();
   }
 
+  // DREAL_LOG_INFO("IcpMCTS::CheckSAT, result = {}", root->delta_sat_box());
   delete root;
-  DREAL_LOG_INFO("IcpMCTS::CheckSAT, result = {}", rvalue);
+  // DREAL_LOG_INFO("IcpMCTS::CheckSAT, cs->box() = {}", cs->mutable_box());
   return rvalue;
 }
 
