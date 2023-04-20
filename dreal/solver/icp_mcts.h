@@ -15,6 +15,7 @@
 */
 #pragma once
 
+#include <random>
 #include <vector>
 
 #include "dreal/contractor/contractor.h"
@@ -47,20 +48,31 @@ class MctsNode {
 
   const std::vector<MctsNode*>& children() const;
   const MctsNode* parent() const;
-  int visited() const;
+  double visited() const;
   void increment_visited();
-  int wins() const;
+  double wins() const;
   void increment_wins();
   double value();
   int index() const;
 
   bool expand(const std::vector<FormulaEvaluator>& formula_evaluators,
-              ContractorStatus* const cs, TimerGuard& branch_timer_guard,
-              TimerGuard& eval_timer_guard, const Config& config,
+              ContractorStatus* const cs, const Contractor& contractor,
+              TimerGuard& branch_timer_guard, TimerGuard& eval_timer_guard,
+              TimerGuard& prune_timer_guard, const Config& config,
               IcpStat& stat);
-  int simulate();
+  double simulate_box(Box& sim_box,
+                      const std::vector<FormulaEvaluator>& formula_evaluators,
+                      ContractorStatus* const cs, const Contractor& contractor,
+                      TimerGuard& eval_timer_guard,
+                      TimerGuard& prune_timer_guard, const Config& config,
+                      IcpStat& stat, std::default_random_engine& rnd);
+  double simulate(const std::vector<FormulaEvaluator>& formula_evaluators,
+                  ContractorStatus* const cs, const Contractor& contractor,
+                  TimerGuard& eval_timer_guard, TimerGuard& prune_timer_guard,
+                  const Config& config, IcpStat& stat,
+                  std::default_random_engine& rnd);
   MctsNode* select();
-  void backpropagate(int wins);
+  void backpropagate(double wins);
 
   bool unsat();
   bool delta_sat();
@@ -69,10 +81,11 @@ class MctsNode {
 
  private:
   Box box_;
+  Box delta_sat_box_;
   MctsNode* parent_;
   std::vector<MctsNode*> children_;
-  int visited_{0};
-  int wins_{0};
+  double visited_{0};
+  double wins_{0};
   bool unsat_{false};
   bool delta_sat_{false};
   bool sat_{false};
@@ -93,10 +106,12 @@ class IcpMcts : public IcpSeq {
                 ContractorStatus* cs) override;
 
  private:
-  int MctsBP(MctsNode* node,
-             const std::vector<FormulaEvaluator>& formula_evaluators,
-             ContractorStatus* const cs, TimerGuard& branch_timer_guard,
-             TimerGuard& eval_timer_guard, IcpStat& stat);
+  double MctsBP(MctsNode* node,
+                const std::vector<FormulaEvaluator>& formula_evaluators,
+                ContractorStatus* const cs, const Contractor& contractor,
+                TimerGuard& branch_timer_guard, TimerGuard& eval_timer_guard,
+                TimerGuard& prune_timer_guard, IcpStat& stat,
+                std::default_random_engine& rnd);
 
   // If `stack_left_box_first_` is true, we add the left box from the
   // branching operation to the `stack`. Otherwise, we add the right
