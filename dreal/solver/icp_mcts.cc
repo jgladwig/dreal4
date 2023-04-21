@@ -249,8 +249,10 @@ double MctsNode::simulate_box(
             DREAL_LOG_DEBUG(
                 "IcpMcts::simulate_box() sampling {}:{} = {} for:\n{}", v,
                 interval, r, next_candidate);
-            double noise =
-                std::min(config.precision() * 0.49, interval.diam() * 0.49);
+            double noise_factor = 0.49;
+
+            double noise = std::min(config.precision() * noise_factor,
+                                    interval.diam() * noise_factor);
             Box::Interval new_interval{std::max(interval.lb(), r - noise),
                                        std::min(interval.ub(), r + noise)};
             interval = interval & new_interval;
@@ -342,8 +344,8 @@ double MctsNode::simulate(
     const Config& config, IcpStat& stat, std::default_random_engine& rnd) {
   double total_depth = 0;
   visited_++;
-  // int iterations = 1;
-  int iterations = 0;
+  int iterations = 1;
+  // int iterations = 0;
   int i = 1;
   for (; i <= iterations; i++) {
     // For each variable that is not degenerate, sample a value and assign it.
@@ -477,6 +479,7 @@ double IcpMcts::MctsBP(MctsNode* node,
       // Node is interior, and need to select child to recurse
       MctsNode* child = node->select();
       DREAL_LOG_DEBUG("Select child: {}\n{}", child->index(), child->box());
+      DREAL_LOG_DEBUG(".");
       wins =
           MctsBP(child, formula_evaluators, cs, contractor, branch_timer_guard,
                  eval_timer_guard, prune_timer_guard, stat, rnd);
