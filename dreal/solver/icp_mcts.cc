@@ -78,6 +78,7 @@ void MctsNode::evaluate(TimerGuard& eval_timer_guard,
 
       // Set the contractor_status box to this.box_
       delta_sat_box_ = cs->mutable_box();
+      DREAL_LOG_INFO("IcpMcts::evalute Found a delta-box:\n{}", delta_sat_box_);
     }
     eval_timer_guard.pause();
   }
@@ -97,7 +98,7 @@ double MctsNode::value() {
     // is arbitrary (maybe)
     value_ = 1.0;
   } else if (terminal_ | unsat_ | sat_ | delta_sat_) {
-    return -1.0;
+    value_ = -1.0;
   } else {
     value_ = (static_cast<double>(wins_) / static_cast<double>(visited_)) +
              std::sqrt(2.0) *
@@ -175,6 +176,8 @@ double MctsNode::simulate_box(
   vector<Box> candidates;
   Box& point_box{cs->mutable_box()};
   candidates.push_back(sim_box);
+
+  // DREAL_LOG_INFO("IcpMcts::simulate_box() Found a sim_box:\n{}", sim_box);
 
   int num_to_assign = 0;
   for (Variable v : sim_box.variables()) {
@@ -285,9 +288,15 @@ double MctsNode::simulate_box(
               // unsat
             } else if (evaluation_result->none()) {
               // delta sat
-              delta_sat_box_ = next_candidate;
+              // DREAL_LOG_INFO(
+              //     "IcpMcts::simulate_box(), evaluation_result->none(),  Found
+              //     " "a delta-box:\n{}", next_candidate);
+              delta_sat_box_ = std::move(next_candidate);
               delta_sat_ = true;
               terminal_ = true;
+              // DREAL_LOG_INFO(
+              //     "IcpMcts::simulate_box(), evaluation_result->none(), Found
+              //     a " "delta-box:\n{}", delta_sat_box_);
               break;
 
             } else {
@@ -299,9 +308,18 @@ double MctsNode::simulate_box(
           }
 
         } else {
+          // DREAL_LOG_INFO(
+          //     "IcpMcts::simulate_box() Found a delta-box (candidate):\n{}",
+          //     *candidate);
+          // DREAL_LOG_INFO(
+          //     "IcpMcts::simulate_box() Found a delta-box
+          //     (next_candidate):\n{}", next_candidate);
           delta_sat_box_ = next_candidate;
           delta_sat_ = true;
           terminal_ = true;
+          // DREAL_LOG_INFO(
+          //     "IcpMcts::simulate_box() Found a delta-box
+          //     (delta_sat_box_):\n{}", delta_sat_box_);
           break;
         }
       }
@@ -342,6 +360,10 @@ double MctsNode::simulate(
     ContractorStatus* const cs, const Contractor& contractor,
     TimerGuard& eval_timer_guard, TimerGuard& prune_timer_guard,
     const Config& config, IcpStat& stat, std::default_random_engine& rnd) {
+  if (terminal_) {
+    return value_;
+  }
+
   double total_depth = 0;
   visited_++;
   int iterations = 1;
@@ -380,6 +402,8 @@ void MctsNode::backpropagate(double wins) {
     for (auto child : children_) {
       if (child->delta_sat()) {
         delta_sat_box_ = child->delta_sat_box_;
+        DREAL_LOG_INFO("IcpMcts::backpropagate Found a delta-box:\n{}",
+                       delta_sat_box_);
       }
     }
   }
@@ -407,7 +431,7 @@ bool IcpMcts::CheckSat(const Contractor& contractor,
                        const vector<FormulaEvaluator>& formula_evaluators,
                        ContractorStatus* const cs) {
   static IcpStat stat{DREAL_LOG_INFO_ENABLED};
-  DREAL_LOG_DEBUG("IcpMcts::CheckSat()");
+  DREAL_LOG_INFO("IcpMcts::CheckSat()");
 
   TimerGuard prune_timer_guard(&stat.timer_prune_, stat.enabled(),
                                false /* start_timer */);
@@ -425,8 +449,12 @@ bool IcpMcts::CheckSat(const Contractor& contractor,
   MctsNode* root = new MctsNode(Box(cs->box()));
   root->evaluate(eval_timer_guard, formula_evaluators, cs, config());
 
-  std::random_device rd;
-  std::default_random_engine rnd(rd());
+  uint32_t seed_counter = config().random_seed();
+  std::seed_seq seed{reinterpret_cast<intptr_t>(&seed_counter)};
+  // std::mt19937 eng(seed);
+
+  // std::random_device rd;
+  std::default_random_engine rnd{seed};
 
   root->simulate(formula_evaluators, cs, contractor, eval_timer_guard,
                  prune_timer_guard, config(), stat, rnd);
@@ -437,15 +465,15 @@ bool IcpMcts::CheckSat(const Contractor& contractor,
            eval_timer_guard, prune_timer_guard, stat, rnd);
     DREAL_LOG_DEBUG("]");
   }
-
+  DREAL_LOG_INFO("IcpMCTS::CheckSAT, result = {}", root->delta_sat_box());
   bool rvalue = !root->unsat();
   if (rvalue) {
     cs->mutable_box() = root->delta_sat_box();
   }
 
-  // DREAL_LOG_DEBUG("IcpMCTS::CheckSAT, result = {}", root->delta_sat_box());
   delete root;
-  // DREAL_LOG_DEBUG("IcpMCTS::CheckSAT, cs->box() = {}", cs->mutable_box());
+  DREAL_LOG_INFO("IcpMCTS::CheckSAT, result = {}", rvalue);
+  DREAL_LOG_INFO("IcpMCTS::CheckSAT, result = {}", cs->mutable_box());
   return rvalue;
 }
 
