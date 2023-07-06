@@ -181,8 +181,8 @@ double MctsNode::simulate_box(
 
   int num_to_assign = 0;
   for (Variable v : sim_box.variables()) {
-    Box::IntervalVector& values = sim_box.mutable_interval_vector();
-    Box::Interval& interval = values[v.get_id() - 1];
+    // Box::IntervalVector& values = sim_box.mutable_interval_vector();
+    Box::Interval& interval = sim_box[v];  // values[v.get_id() - 1];
     if (!interval.is_degenerated() && interval.diam() >= config.precision() &&
         !(interval.lb() == interval.mid() || interval.mid() == interval.ub())) {
       num_to_assign++;
