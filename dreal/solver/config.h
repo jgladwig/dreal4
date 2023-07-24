@@ -149,6 +149,12 @@ class Config {
   /// Returns a mutable OptionValue for `smtlib2_compliant`.
   OptionValue<bool>& mutable_smtlib2_compliant();
 
+  /// Returns whether it uses MCTS algorithm for branch and prune.
+  bool mcts() const;
+
+  /// Returns a mutable OptionValue for `mcts`.
+  OptionValue<bool>& mutable_mcts();
+
   /// @}
 
   static constexpr double kDefaultPrecision{0.001};
@@ -169,6 +175,7 @@ class Config {
   OptionValue<int> number_of_jobs_{1};
   OptionValue<bool> stack_left_box_first_{false};
   OptionValue<bool> smtlib2_compliant_{false};
+  OptionValue<bool> mcts_{false};
 
   // --------------------------------------------------------------------------
   // NLopt options (stopping criteria)

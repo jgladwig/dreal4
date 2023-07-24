@@ -20,10 +20,13 @@ def _impl(repository_ctx):
             "BUILD.bazel",
         )
     elif repository_ctx.os.name == "linux":
-        GMP_H_UBUNTU = "/usr/include/x86_64-linux-gnu/gmp.h"
+        GMP_H_UBUNTU_x86_64 = "/usr/include/x86_64-linux-gnu/gmp.h"
+        GMP_H_UBUNTU_AARCH64 = "/usr/include/aarch64-linux-gnu/gmp.h"
         GMP_H_FEDORA = "/usr/include/gmp.h"
-        if repository_ctx.path(GMP_H_UBUNTU).exists:
-            repository_ctx.symlink(GMP_H_UBUNTU, "include/gmp.h")
+        if repository_ctx.path(GMP_H_UBUNTU_x86_64).exists:
+            repository_ctx.symlink(GMP_H_UBUNTU_x86_64, "include/gmp.h")
+        elif repository_ctx.path(GMP_H_UBUNTU_AARCH64).exists:
+            repository_ctx.symlink(GMP_H_UBUNTU_AARCH64, "include/gmp.h")
         elif repository_ctx.path(GMP_H_FEDORA).exists:
             repository_ctx.symlink(GMP_H_FEDORA, "include/gmp.h")
         else:

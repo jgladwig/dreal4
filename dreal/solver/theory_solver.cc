@@ -25,6 +25,7 @@
 #include "dreal/solver/context.h"
 #include "dreal/solver/filter_assertion.h"
 #include "dreal/solver/formula_evaluator.h"
+#include "dreal/solver/icp_mcts.h"
 #include "dreal/solver/icp_parallel.h"
 #include "dreal/solver/icp_seq.h"
 #include "dreal/util/assert.h"
@@ -45,7 +46,11 @@ TheorySolver::TheorySolver(const Config& config)
   if (config_.number_of_jobs() > 1) {
     icp_ = make_unique<IcpParallel>(config_);
   } else {
-    icp_ = make_unique<IcpSeq>(config_);
+    if (config_.mcts()) {
+      icp_ = make_unique<IcpMcts>(config_);
+    } else {
+      icp_ = make_unique<IcpSeq>(config_);
+    }
   }
 }
 
@@ -95,12 +100,16 @@ class TheorySolverStat : public Stat {
       print(cout, "{:<45} @ {:<20} = {:>15f} sec\n",
             "Total time spent in CheckSat", "Theory level",
             timer_check_sat_.seconds());
+      print(cout, "{:<45} @ {:<20} = {:>15f} sec\n",
+            "Total time spent in BuildContractor", "Theory level",
+            timer_build_contractor_.seconds());
     }
   }
 
   void increase_num_check_sat() { increase(&num_check_sat_); }
 
   Timer timer_check_sat_;
+  Timer timer_build_contractor_;
 
  private:
   std::atomic<int> num_check_sat_{0};
@@ -232,8 +241,11 @@ bool TheorySolver::CheckSat(const Box& box, const vector<Formula>& assertions) {
   ContractorStatus contractor_status(box);
 
   // Icp Step
+  TimerGuard build_contractor_guard(&stat.timer_build_contractor_,
+                                    stat.enabled(), true /* start_timer*/);
   const optional<Contractor> contractor{
       BuildContractor(assertions, &contractor_status)};
+  build_contractor_guard.pause();
   if (contractor) {
     icp_->CheckSat(*contractor, BuildFormulaEvaluator(assertions),
                    &contractor_status);

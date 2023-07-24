@@ -149,6 +149,11 @@ void MainProgram::AddOptions() {
            0 /* Delimiter if expecting multiple args. */, "Number of jobs.\n",
            "--jobs", "-j");
 
+  opt_.add("false" /* Default */, false /* Required? */,
+           0 /* Number of args expected. */,
+           0 /* Delimiter if expecting multiple args. */,
+           "Use MCTS Branch and Prune Algorithms.\n", "--mcts", "-m");
+
   const string kDefaultNloptFtolRel{
       fmt::format("{}", Config::kDefaultNloptFtolRel)};
   opt_.add(kDefaultNloptFtolRel.c_str() /* Default */, false /* Required? */,
@@ -322,6 +327,13 @@ void MainProgram::ExtractOptions() {
     config_.mutable_number_of_jobs().set_from_command_line(jobs);
     DREAL_LOG_DEBUG("MainProgram::ExtractOptions() --jobs = {}",
                     config_.number_of_jobs());
+  }
+
+  // --mcts
+  if (opt_.isSet("--mcts")) {
+    config_.mutable_mcts().set_from_command_line(true);
+    DREAL_LOG_DEBUG("MainProgram::ExtractOptions() --mcts = {}",
+                    config_.mcts());
   }
 
   // --forall-polytope

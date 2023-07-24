@@ -159,6 +159,33 @@ pair<double, int> Box::MaxDiam() const {
   return make_pair(max_diam, idx);
 }
 
+pair<double, int> Box::MinDiamGT(double threshold) const {
+  double min_diam{std::numeric_limits<double>::max()};
+  int idx{-1};
+  for (size_t i{0}; i < variables_->size(); ++i) {
+    const double diam_i{values_[i].diam()};
+    if (diam_i < min_diam && values_[i].is_bisectable() && diam_i > threshold) {
+      min_diam = diam_i;
+      idx = i;
+    }
+  }
+  return make_pair(min_diam, idx);
+}
+
+pair<double, int> Box::FirstDiamGT(double threshold) const {
+  double min_diam{std::numeric_limits<double>::max()};
+  int idx{-1};
+  for (size_t i{0}; i < variables_->size(); ++i) {
+    const double diam_i{values_[i].diam()};
+    if (diam_i < min_diam && values_[i].is_bisectable() && diam_i > threshold) {
+      min_diam = diam_i;
+      idx = i;
+      return make_pair(min_diam, idx);
+    }
+  }
+  return make_pair(min_diam, idx);
+}
+
 pair<Box, Box> Box::bisect(const int i) const {
   const Variable& var{(*idx_to_var_)[i]};
   if (!values_[i].is_bisectable()) {
@@ -246,7 +273,7 @@ ostream& operator<<(ostream& os, const Box& box) {
         }
         break;
       case Variable::Type::CONTINUOUS:
-        os << interval;
+        os << interval << " = " << interval.diam();
         break;
       case Variable::Type::BOOLEAN:
         if (interval.ub() == 0.0) {
