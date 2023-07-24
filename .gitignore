@@ -12,3 +12,5 @@ dist/
 doxygen_cxx
 dreal.egg-info/
 logs/
+.vscode/launch.json
+.vscode/tasks.json
