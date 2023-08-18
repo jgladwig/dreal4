@@ -12,5 +12,9 @@ dist/
 doxygen_cxx
 dreal.egg-info/
 logs/
+<<<<<<< HEAD
 .vscode/launch.json
 .vscode/tasks.json
+=======
+.vscode
+>>>>>>> ignores
